@@ -40,7 +40,7 @@
 #include "main.h"
 #include "stm32f4xx_hal.h"
 #include "dma.h"
-#include "usart.h"
+#include "spi.h"
 #include "gpio.h"
 
 /* USER CODE BEGIN Includes */
@@ -51,8 +51,9 @@
 
 /* USER CODE BEGIN PV */
 /* Private variables ---------------------------------------------------------*/
-static uint8_t usart1RxBuff[1024] = {0};
-static uint8_t usart1TxBuff[1024] = {0};
+static uint8_t spi1TxBuff[5] = {0xAB};
+static uint8_t spi1RxBuff[5] = {0};
+static uint8_t dataBuff[5]   = {0};
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -94,13 +95,14 @@ int main(void)
   /* Initialize all configured peripherals */
   MX_GPIO_Init();
   MX_DMA_Init();
-  MX_USART1_UART_Init();
+  MX_SPI1_Init();
 
   /* Initialize interrupts */
   MX_NVIC_Init();
 
   /* USER CODE BEGIN 2 */
-  HAL_UART_Receive_DMA(&huart1, usart1RxBuff, sizeof(usart1RxBuff));
+  HAL_GPIO_WritePin(SPI1_CS_GPIO_Port, SPI1_CS_Pin, GPIO_PIN_RESET);
+  HAL_SPI_TransmitReceive_DMA(&hspi1, spi1TxBuff, spi1RxBuff, sizeof(spi1TxBuff));
   /* USER CODE END 2 */
 
   /* Infinite loop */
@@ -175,28 +177,24 @@ void SystemClock_Config(void)
 */
 static void MX_NVIC_Init(void)
 {
-  /* USART1_IRQn interrupt configuration */
-  HAL_NVIC_SetPriority(USART1_IRQn, 0, 0);
-  HAL_NVIC_EnableIRQ(USART1_IRQn);
-  /* DMA2_Stream2_IRQn interrupt configuration */
-  HAL_NVIC_SetPriority(DMA2_Stream2_IRQn, 0, 0);
-  HAL_NVIC_EnableIRQ(DMA2_Stream2_IRQn);
-  /* DMA2_Stream7_IRQn interrupt configuration */
-  HAL_NVIC_SetPriority(DMA2_Stream7_IRQn, 0, 0);
-  HAL_NVIC_EnableIRQ(DMA2_Stream7_IRQn);
+  /* SPI1_IRQn interrupt configuration */
+  HAL_NVIC_SetPriority(SPI1_IRQn, 0, 0);
+  HAL_NVIC_EnableIRQ(SPI1_IRQn);
+  /* DMA2_Stream0_IRQn interrupt configuration */
+  HAL_NVIC_SetPriority(DMA2_Stream0_IRQn, 0, 0);
+  HAL_NVIC_EnableIRQ(DMA2_Stream0_IRQn);
+  /* DMA2_Stream3_IRQn interrupt configuration */
+  HAL_NVIC_SetPriority(DMA2_Stream3_IRQn, 0, 0);
+  HAL_NVIC_EnableIRQ(DMA2_Stream3_IRQn);
 }
 
 /* USER CODE BEGIN 4 */
-void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart)
+void HAL_SPI_TxRxCpltCallback(SPI_HandleTypeDef *hspi)
 {
-  if(huart->Instance == USART1)
+  if(hspi->Instance == SPI1)
   {
-    int len = sizeof(usart1RxBuff) - huart1.hdmarx->Instance->NDTR;
-    
-    memcpy(usart1TxBuff, usart1RxBuff, len);
-    
-    HAL_UART_Transmit_DMA(&huart1, usart1TxBuff, len);
-    HAL_UART_Receive_DMA(&huart1, usart1RxBuff, sizeof(usart1RxBuff));
+    HAL_GPIO_WritePin(SPI1_CS_GPIO_Port, SPI1_CS_Pin, GPIO_PIN_SET);
+    memcpy(dataBuff, spi1RxBuff, sizeof(spi1RxBuff));
   }
 }
 /* USER CODE END 4 */
