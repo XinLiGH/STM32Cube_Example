@@ -40,24 +40,24 @@
 #include "main.h"
 #include "stm32f4xx_hal.h"
 #include "dma.h"
-#include "usart.h"
+#include "i2c.h"
 #include "gpio.h"
 
 /* USER CODE BEGIN Includes */
-#include <string.h>
+
 /* USER CODE END Includes */
 
 /* Private variables ---------------------------------------------------------*/
 
 /* USER CODE BEGIN PV */
 /* Private variables ---------------------------------------------------------*/
-static uint8_t usart1RxBuff[1024] = {0};
-static uint8_t usart1TxBuff[1024] = {0};
+static uint8_t deviceAddress = 0xA0;
+static uint8_t storeAddress  = 0x00;
+static uint8_t dataBuff[256] = {0};
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
 void SystemClock_Config(void);
-static void MX_NVIC_Init(void);
 
 /* USER CODE BEGIN PFP */
 /* Private function prototypes -----------------------------------------------*/
@@ -94,13 +94,10 @@ int main(void)
   /* Initialize all configured peripherals */
   MX_GPIO_Init();
   MX_DMA_Init();
-  MX_USART1_UART_Init();
-
-  /* Initialize interrupts */
-  MX_NVIC_Init();
+  MX_I2C1_Init();
 
   /* USER CODE BEGIN 2 */
-  HAL_UART_Receive_DMA(&huart1, usart1RxBuff, sizeof(usart1RxBuff));
+  HAL_I2C_Master_Transmit_DMA(&hi2c1, deviceAddress, &storeAddress, sizeof(storeAddress));
   /* USER CODE END 2 */
 
   /* Infinite loop */
@@ -171,32 +168,20 @@ void SystemClock_Config(void)
   HAL_NVIC_SetPriority(SysTick_IRQn, 0, 0);
 }
 
-/** NVIC Configuration
-*/
-static void MX_NVIC_Init(void)
+/* USER CODE BEGIN 4 */
+void HAL_I2C_MasterTxCpltCallback(I2C_HandleTypeDef *hi2c)
 {
-  /* USART1_IRQn interrupt configuration */
-  HAL_NVIC_SetPriority(USART1_IRQn, 0, 0);
-  HAL_NVIC_EnableIRQ(USART1_IRQn);
-  /* DMA2_Stream2_IRQn interrupt configuration */
-  HAL_NVIC_SetPriority(DMA2_Stream2_IRQn, 0, 0);
-  HAL_NVIC_EnableIRQ(DMA2_Stream2_IRQn);
-  /* DMA2_Stream7_IRQn interrupt configuration */
-  HAL_NVIC_SetPriority(DMA2_Stream7_IRQn, 0, 0);
-  HAL_NVIC_EnableIRQ(DMA2_Stream7_IRQn);
+  if(hi2c->Instance == I2C1)
+  {
+    HAL_I2C_Master_Receive_DMA(hi2c, deviceAddress, dataBuff, sizeof(dataBuff));
+  }
 }
 
-/* USER CODE BEGIN 4 */
-void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart)
+void HAL_I2C_MasterRxCpltCallback(I2C_HandleTypeDef *hi2c)
 {
-  if(huart->Instance == USART1)
+  if(hi2c->Instance == I2C1)
   {
-    int len = sizeof(usart1RxBuff) - huart->hdmarx->Instance->NDTR;
     
-    memcpy(usart1TxBuff, usart1RxBuff, len);
-    
-    HAL_UART_Transmit_DMA(huart, usart1TxBuff, len);
-    HAL_UART_Receive_DMA(huart, usart1RxBuff, sizeof(usart1RxBuff));
   }
 }
 /* USER CODE END 4 */
